@@ -21,12 +21,10 @@ def clean_data(raw_data_path, output_dir):
     df_clean.to_csv(cleaned_path, index=False)
     print(f"Saved full cleaned dataset to: {cleaned_path}")
     
-    # 3. Select recommended features
-    selected_cols = ["Gender", "Age", "Height", "Weight", "BMI", "Smoking", "Drinking", "Fracture"]
-    df_rec = df_clean[selected_cols].copy()
+    # 3. Save all 40 columns as the cleaned dataset
+    clean_dataset_path = os.path.join(output_dir, "cleaned_dataset.csv")
+    df_clean.to_csv(clean_dataset_path, index=False)
+    print(f"Cleaned dataset saved to {clean_dataset_path}: {df_clean.shape}")
     
-    rec_path = os.path.join(output_dir, "reccomended_features_dataset.csv")
-    df_rec.to_csv(rec_path, index=False)
-    print(f"Selected recommended features. Saved to {rec_path}: {df_rec.shape}")
-    
-    return rec_path
+    return clean_dataset_path
+

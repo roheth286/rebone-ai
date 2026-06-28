@@ -15,10 +15,11 @@ def train_logistic_model(train_path, model_output_path, random_state=42):
     # 2. Initialize Logistic Regression with balanced class weights
     # class_weight='balanced' weights penalties inversely proportional to class frequencies
     model = LogisticRegression(
-        class_weight="balanced", 
-        random_state=random_state, 
-        max_iter=1000
-    )
+    class_weight="balanced", 
+    C=0.1,  # Added stronger L2 regularization to prevent overfitting on 46 features
+    random_state=random_state, 
+    max_iter=1000
+)
     
     # 3. Fit the model
     print("Training Logistic Regression model...")

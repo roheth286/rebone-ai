@@ -58,7 +58,14 @@ class GenderEncoder(BaseEstimator, TransformerMixin):
 
 # --- Pipeline Builder ---
 
-def build_preprocessing_pipeline(num_cols=["Age", "Height", "Weight", "BMI"], gender_col="Gender"):
+def build_preprocessing_pipeline(num_cols=None, gender_col="Gender"):
+    if num_cols is None:
+        num_cols = [
+            "Age", "Height", "Weight", "BMI",
+            "L1-4", "L1.4T", "FN", "FNT", "TL", "TLT",
+            "ALT", "AST", "BUN", "CREA", "URIC", "FBG", "HDL-C", "LDL-C", "Ca", "P", "Mg"
+        ]
+
 
     
     # 1. Custom transformer pipeline (Outlier Capping & Gender Encoding)
@@ -92,3 +99,21 @@ def save_pipeline(pipeline, filepath):
 
 def load_pipeline(filepath):
     return joblib.load(filepath)
+
+def get_pipeline_feature_names(pipeline, X_input):
+    """
+    Returns the list of column names in the order they are output by the pipeline.
+    """
+    # 1. Identify scaled columns from the ColumnTransformer
+    ct = pipeline.named_steps["scaling_step"]
+    num_cols = ct.transformers_[0][2]
+    
+    # 2. Get the columns entering the ColumnTransformer (after custom preprocessor steps)
+    X_custom = pipeline.named_steps["custom_steps"].transform(X_input)
+    
+    # 3. The remaining columns are those not scaled
+    passthrough_cols = [col for col in X_custom.columns if col not in num_cols]
+    
+    # ColumnTransformer outputs scaled columns first, then passthrough columns
+    return list(num_cols) + passthrough_cols
+

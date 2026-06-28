@@ -6,12 +6,16 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
+    accuracy_score, precision_score, recall_score, f1_score, fbeta_score,
     roc_auc_score, precision_recall_curve, auc, roc_curve, confusion_matrix
 )
 
 def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
-
+    """
+    Evaluates a trained model on the test dataset. Computes robust metrics,
+    finds the optimal threshold to maximize the F2-score (weighting Recall twice as much as Precision),
+    saves plots, and exports JSON metrics alongside model hyperparameters.
+    """
     os.makedirs(plots_dir, exist_ok=True)
     os.makedirs(os.path.dirname(metrics_output_path), exist_ok=True)
     
@@ -25,16 +29,18 @@ def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
     # 2. Get predictions and probabilities
     y_probs = model.predict_proba(X_test)[:, 1] # Probability of positive class (Fracture=1)
     
-    # 3. Find the optimal decision threshold (maximizes F1-score)
+    # 3. Find the optimal decision threshold (maximizes F2-score)
     precisions, recalls, thresholds = precision_recall_curve(y_test, y_probs)
-    f1_scores = np.zeros_like(thresholds, dtype=float)
+    f2_scores = np.zeros_like(thresholds, dtype=float)
+    
     for idx, (p, r) in enumerate(zip(precisions[:-1], recalls[:-1])):
-        if (p + r) > 0:
-            f1_scores[idx] = (2 * p * r) / (p + r)
+        if (4 * p + r) > 0:
+            # F2-score formula: (5 * Precision * Recall) / (4 * Precision + Recall)
+            f2_scores[idx] = (5 * p * r) / (4 * p + r)
             
-    optimal_idx = np.argmax(f1_scores)
+    optimal_idx = np.argmax(f2_scores)
     optimal_threshold = thresholds[optimal_idx]
-    optimal_f1 = f1_scores[optimal_idx]
+    optimal_f2 = f2_scores[optimal_idx]
     
     # Apply optimal threshold to get final binary predictions
     y_preds = (y_probs >= optimal_threshold).astype(int)
@@ -43,6 +49,7 @@ def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
     precision = precision_score(y_test, y_preds, zero_division=0)
     recall = recall_score(y_test, y_preds)
     f1 = f1_score(y_test, y_preds, zero_division=0)
+    f2 = fbeta_score(y_test, y_preds, beta=2, zero_division=0)
     accuracy = accuracy_score(y_test, y_preds)
     roc_auc = roc_auc_score(y_test, y_probs)
     pr_auc = auc(recalls, precisions)
@@ -59,11 +66,12 @@ def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
     
     # Print metrics to console
     print("\n=== Model Evaluation Results ===")
-    print(f"Optimal Threshold: {optimal_threshold:.4f} (max F1={optimal_f1:.4f})")
+    print(f"Optimal Threshold: {optimal_threshold:.4f} (max F2={optimal_f2:.4f})")
     print(f"Accuracy:          {accuracy:.4f}")
     print(f"Precision:         {precision:.4f}")
-    print(f"Recall (Sensitivity): {recall:.4f}")
+    print(f"Recall (Sensitivity): {recall:.4f} (Missed: {sum(y_test) - sum(y_preds & y_test)} out of {sum(y_test)})")
     print(f"F1-Score:          {f1:.4f}")
+    print(f"F2-Score:          {f2:.4f}")
     print(f"ROC-AUC:           {roc_auc:.4f}")
     print(f"PR-AUC:            {pr_auc:.4f}")
     
@@ -77,6 +85,7 @@ def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
             "precision": float(precision),
             "recall": float(recall),
             "f1_score": float(f1),
+            "f2_score": float(f2),
             "roc_auc": float(roc_auc),
             "pr_auc": float(pr_auc)
         }
