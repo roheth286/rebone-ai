@@ -18,9 +18,9 @@ def engineer_features(df):
     df_feat["BMI_Overweight"] = ((df_feat["BMI"] >= 25.0) & (df_feat["BMI"] < 30.0)).astype(int)
     df_feat["BMI_Obese"] = (df_feat["BMI"] >= 30.0).astype(int)
     
-    # --- Idea 2: Post-menopausal Risk ---
-    # Assuming Gender raw values: 1 is Male, 2 is Female (mapping happens in pipeline later)
-    df_feat["Postmenopausal_Risk"] = ((df_feat["Gender"] == 2) & (df_feat["Age"] >= 50.0)).astype(int)
+    # Assuming Gender raw values: 1/'Male' is Male, 2/'Female' is Female (mapping happens in pipeline later)
+    df_feat["Postmenopausal_Risk"] = ((df_feat["Gender"].isin([2, "Female"])) & (df_feat["Age"] >= 50.0)).astype(int)
+
     
     # --- Idea 4: Senior Status Flag ---
     df_feat["Is_Senior"] = (df_feat["Age"] >= 65.0).astype(int)

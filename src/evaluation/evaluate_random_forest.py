@@ -1,0 +1,136 @@
+import os
+import json
+import numpy as np
+import pandas as pd
+import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, fbeta_score,
+    roc_auc_score, precision_recall_curve, auc, roc_curve, confusion_matrix
+)
+
+def evaluate_random_forest_model(model_path, test_path, metrics_output_path, plots_dir):
+    """
+    Evaluates a trained Random Forest model on the test dataset.
+    Finds the optimal decision threshold to maximize the F2-score,
+    saves Random Forest specific plots, and exports JSON metrics alongside RF hyperparameters.
+    """
+    os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(metrics_output_path), exist_ok=True)
+    
+    # 1. Load model and test dataset
+    model = joblib.load(model_path)
+    test_df = pd.read_csv(test_path)
+    
+    X_test = test_df.drop(columns=["Fracture"])
+    y_test = test_df["Fracture"]
+    
+    # 2. Get predictions and probabilities
+    y_probs = model.predict_proba(X_test)[:, 1] # Probability of positive class (Fracture=1)
+    
+    # 3. Find the optimal decision threshold (maximizes F2-score)
+    precisions, recalls, thresholds = precision_recall_curve(y_test, y_probs)
+    f2_scores = np.zeros_like(thresholds, dtype=float)
+    
+    for idx, (p, r) in enumerate(zip(precisions[:-1], recalls[:-1])):
+        if (4 * p + r) > 0:
+            # F2-score formula: (5 * Precision * Recall) / (4 * Precision + Recall)
+            f2_scores[idx] = (5 * p * r) / (4 * p + r)
+            
+    optimal_idx = np.argmax(f2_scores)
+    optimal_threshold = thresholds[optimal_idx]
+    optimal_f2 = f2_scores[optimal_idx]
+    
+    # Apply optimal threshold to get final binary predictions
+    y_preds = (y_probs >= optimal_threshold).astype(int)
+    
+    # 4. Calculate final metrics
+    precision = precision_score(y_test, y_preds, zero_division=0)
+    recall = recall_score(y_test, y_preds)
+    f1 = f1_score(y_test, y_preds, zero_division=0)
+    f2 = fbeta_score(y_test, y_preds, beta=2, zero_division=0)
+    accuracy = accuracy_score(y_test, y_preds)
+    roc_auc = roc_auc_score(y_test, y_probs)
+    pr_auc = auc(recalls, precisions)
+    
+    # 5. Extract hyperparameters from Random Forest model
+    model_params = model.get_params()
+    selected_hyperparameters = {
+        "n_estimators": int(model_params.get("n_estimators")) if model_params.get("n_estimators") is not None else None,
+        "max_depth": int(model_params.get("max_depth")) if model_params.get("max_depth") is not None else None,
+        "min_samples_leaf": int(model_params.get("min_samples_leaf")) if model_params.get("min_samples_leaf") is not None else None,
+        "min_samples_split": int(model_params.get("min_samples_split")) if model_params.get("min_samples_split") is not None else None,
+        "criterion": model_params.get("criterion"),
+        "class_weight": model_params.get("class_weight")
+    }
+    
+    # Print metrics to console
+    print("\n=== Random Forest Model Evaluation Results ===")
+    print(f"Optimal Threshold: {optimal_threshold:.4f} (max F2={optimal_f2:.4f})")
+    print(f"Accuracy:          {accuracy:.4f}")
+    print(f"Precision:         {precision:.4f}")
+    print(f"Recall (Sensitivity): {recall:.4f} (Missed: {sum(y_test) - sum(y_preds & y_test)} out of {sum(y_test)})")
+    print(f"F1-Score:          {f1:.4f}")
+    print(f"F2-Score:          {f2:.4f}")
+    print(f"ROC-AUC:           {roc_auc:.4f}")
+    print(f"PR-AUC:            {pr_auc:.4f}")
+    
+    # 6. Save metrics and hyperparameters together to JSON
+    output_data = {
+        "model_type": type(model).__name__,
+        "hyperparameters": selected_hyperparameters,
+        "metrics": {
+            "optimal_threshold": float(optimal_threshold),
+            "accuracy": float(accuracy),
+            "precision": float(precision),
+            "recall": float(recall),
+            "f1_score": float(f1),
+            "f2_score": float(f2),
+            "roc_auc": float(roc_auc),
+            "pr_auc": float(pr_auc)
+        }
+    }
+    
+    with open(metrics_output_path, "w") as f:
+        json.dump(output_data, f, indent=4)
+    print(f"Metrics and hyperparameters saved to: {metrics_output_path}")
+    
+    # 7. Generate and save Plots
+    # Plot A: Confusion Matrix
+    plt.figure(figsize=(6, 5))
+    cm = confusion_matrix(y_test, y_preds)
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Greens", cbar=False)
+    plt.title(f"Random Forest Confusion Matrix (Threshold={optimal_threshold:.2f})")
+    plt.xlabel("Predicted Class")
+    plt.ylabel("True Class")
+    plt.savefig(os.path.join(plots_dir, "random_forest_confusion_matrix.png"), dpi=200, bbox_inches="tight")
+    plt.close()
+    
+    # Plot B: ROC Curve
+    fpr, tpr, _ = roc_curve(y_test, y_probs)
+    plt.figure(figsize=(7, 6))
+    plt.plot(fpr, tpr, color="forestgreen", lw=2, label=f"ROC Curve (AUC = {roc_auc:.2f})")
+    plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Random Forest ROC Curve")
+    plt.legend(loc="lower right")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(plots_dir, "random_forest_roc_curve.png"), dpi=200, bbox_inches="tight")
+    plt.close()
+    
+    # Plot C: Precision-Recall Curve
+    plt.figure(figsize=(7, 6))
+    plt.plot(recalls, precisions, color="darkgreen", lw=2, label=f"PR Curve (AUC = {pr_auc:.2f})")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Random Forest Precision-Recall Curve")
+    plt.legend(loc="lower left")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(plots_dir, "random_forest_pr_curve.png"), dpi=200, bbox_inches="tight")
+    plt.close()
+    
+    print(f"Saved Random Forest evaluation plots to: {plots_dir}")

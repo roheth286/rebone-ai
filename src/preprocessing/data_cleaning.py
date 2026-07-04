@@ -8,9 +8,13 @@ def clean_data(raw_data_path, output_dir):
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Load raw dataset
-    df = pd.read_csv(raw_data_path)
+    # 1. Load raw dataset (support both CSV and Excel)
+    if raw_data_path.endswith(('.xlsx', '.xls')):
+        df = pd.read_excel(raw_data_path)
+    else:
+        df = pd.read_csv(raw_data_path)
     print(f"Loaded raw dataset from {raw_data_path}: {df.shape}")
+
     
     # 2. Drop missing rows
     df_clean = df.dropna().copy()

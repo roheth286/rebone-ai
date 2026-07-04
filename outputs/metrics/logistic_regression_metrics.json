@@ -1,19 +1,20 @@
 {
     "model_type": "LogisticRegression",
     "hyperparameters": {
-        "class_weight": "balanced",
-        "C": 1.0,
+        "class_weight": null,
+        "C": 0.1,
         "penalty": "deprecated",
         "solver": "lbfgs",
         "max_iter": 1000
     },
     "metrics": {
-        "optimal_threshold": 0.9967962737480612,
-        "accuracy": 0.9863325740318907,
-        "precision": 1.0,
+        "optimal_threshold": 0.06217725357956648,
+        "accuracy": 0.979498861047836,
+        "precision": 0.4,
         "recall": 0.25,
-        "f1_score": 0.4,
-        "roc_auc": 0.5809164733178654,
-        "pr_auc": 0.32084220097396554
+        "f1_score": 0.3076923076923077,
+        "f2_score": 0.2702702702702703,
+        "roc_auc": 0.6708236658932716,
+        "pr_auc": 0.19217032823078595
     }
 }

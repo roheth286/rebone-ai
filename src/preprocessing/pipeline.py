@@ -53,8 +53,9 @@ class GenderEncoder(BaseEstimator, TransformerMixin):
     def transform(self, X):
         X_encoded = pd.DataFrame(X).copy()
         if self.column in X_encoded.columns:
-            X_encoded[self.column] = X_encoded[self.column].map({1: 0, 2: 1})
+            X_encoded[self.column] = X_encoded[self.column].map({'Male': 0, 'Female': 1, 1: 0, 2: 1})
         return X_encoded
+
 
 # --- Pipeline Builder ---
 
