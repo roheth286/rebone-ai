@@ -10,7 +10,12 @@ from sklearn.metrics import (
     roc_auc_score, precision_recall_curve, auc, roc_curve, confusion_matrix
 )
 
-def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
+def evaluate_xgboost_model(model_path, test_path, metrics_output_path, plots_dir):
+    """
+    Evaluates a trained XGBoost model on the test dataset.
+    Finds the optimal decision threshold to maximize the F2-score,
+    saves XGBoost specific plots, and exports JSON metrics alongside XGB hyperparameters.
+    """
     os.makedirs(plots_dir, exist_ok=True)
     os.makedirs(os.path.dirname(metrics_output_path), exist_ok=True)
     
@@ -49,18 +54,19 @@ def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
     roc_auc = roc_auc_score(y_test, y_probs)
     pr_auc = auc(recalls, precisions)
     
-    # 5. Extract hyperparameters from the model object
+    # 5. Extract hyperparameters from XGBoost model
     model_params = model.get_params()
     selected_hyperparameters = {
-        "class_weight": model_params.get("class_weight"),
-        "C": float(model_params.get("C")) if model_params.get("C") is not None else None,
-        "penalty": model_params.get("penalty"),
-        "solver": model_params.get("solver"),
-        "max_iter": int(model_params.get("max_iter")) if model_params.get("max_iter") is not None else None
+        "n_estimators": int(model_params.get("n_estimators")) if model_params.get("n_estimators") is not None else None,
+        "max_depth": int(model_params.get("max_depth")) if model_params.get("max_depth") is not None else None,
+        "learning_rate": float(model_params.get("learning_rate")) if model_params.get("learning_rate") is not None else None,
+        "reg_alpha": float(model_params.get("reg_alpha")) if model_params.get("reg_alpha") is not None else None,
+        "reg_lambda": float(model_params.get("reg_lambda")) if model_params.get("reg_lambda") is not None else None,
+        "random_state": model_params.get("random_state")
     }
     
     # Print metrics to console
-    print("\n=== Model Evaluation Results ===")
+    print("\n=== XGBoost Model Evaluation Results ===")
     print(f"Optimal Threshold: {optimal_threshold:.4f} (max F2={optimal_f2:.4f})")
     print(f"Accuracy:          {accuracy:.4f}")
     print(f"Precision:         {precision:.4f}")
@@ -94,37 +100,37 @@ def evaluate_model(model_path, test_path, metrics_output_path, plots_dir):
     # Plot A: Confusion Matrix
     plt.figure(figsize=(6, 5))
     cm = confusion_matrix(y_test, y_preds)
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False)
-    plt.title(f"Confusion Matrix (Threshold={optimal_threshold:.2f})")
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Purples", cbar=False)
+    plt.title(f"XGBoost Confusion Matrix (Threshold={optimal_threshold:.2f})")
     plt.xlabel("Predicted Class")
     plt.ylabel("True Class")
-    plt.savefig(os.path.join(plots_dir, "logistic_regression_confusion_matrix.png"), dpi=200, bbox_inches="tight")
+    plt.savefig(os.path.join(plots_dir, "xgboost_confusion_matrix.png"), dpi=200, bbox_inches="tight")
     plt.close()
     
     # Plot B: ROC Curve
     fpr, tpr, _ = roc_curve(y_test, y_probs)
     plt.figure(figsize=(7, 6))
-    plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC Curve (AUC = {roc_auc:.2f})")
+    plt.plot(fpr, tpr, color="mediumpurple", lw=2, label=f"ROC Curve (AUC = {roc_auc:.2f})")
     plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("Receiver Operating Characteristic (ROC) Curve")
+    plt.title("XGBoost ROC Curve")
     plt.legend(loc="lower right")
     plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(plots_dir, "logistic_regression_roc_curve.png"), dpi=200, bbox_inches="tight")
+    plt.savefig(os.path.join(plots_dir, "xgboost_roc_curve.png"), dpi=200, bbox_inches="tight")
     plt.close()
     
     # Plot C: Precision-Recall Curve
     plt.figure(figsize=(7, 6))
-    plt.plot(recalls, precisions, color="blue", lw=2, label=f"PR Curve (AUC = {pr_auc:.2f})")
+    plt.plot(recalls, precisions, color="indigo", lw=2, label=f"PR Curve (AUC = {pr_auc:.2f})")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve")
+    plt.title("XGBoost Precision-Recall Curve")
     plt.legend(loc="lower left")
     plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(plots_dir, "logistic_regression_pr_curve.png"), dpi=200, bbox_inches="tight")
+    plt.savefig(os.path.join(plots_dir, "xgboost_pr_curve.png"), dpi=200, bbox_inches="tight")
     plt.close()
     
-    print(f"Saved evaluation plots to: {plots_dir}")
+    print(f"Saved XGBoost evaluation plots to: {plots_dir}")

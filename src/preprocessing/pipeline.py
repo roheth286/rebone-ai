@@ -61,11 +61,8 @@ class GenderEncoder(BaseEstimator, TransformerMixin):
 
 def build_preprocessing_pipeline(num_cols=None, gender_col="Gender"):
     if num_cols is None:
-        num_cols = [
-            "Age", "Height", "Weight", "BMI",
-            "L1-4", "L1.4T", "FN", "FNT", "TL", "TLT",
-            "ALT", "AST", "BUN", "CREA", "URIC", "FBG", "HDL-C", "LDL-C", "Ca", "P", "Mg"
-        ]
+        num_cols = ["Age", "BMI", "L1.4T", "FNT", "TLT"]
+
 
 
     
