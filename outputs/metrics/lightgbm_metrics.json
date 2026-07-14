@@ -1,0 +1,19 @@
+{
+    "model_type": "LGBMClassifier",
+    "hyperparameters": {
+        "n_estimators": 100,
+        "max_depth": 4,
+        "learning_rate": 0.05,
+        "random_state": 42
+    },
+    "metrics": {
+        "optimal_threshold": 0.26282403023424594,
+        "accuracy": 0.9805194805194806,
+        "precision": 0.5,
+        "recall": 0.2222222222222222,
+        "f1_score": 0.3076923076923077,
+        "f2_score": 0.25,
+        "roc_auc": 0.5948000981113563,
+        "pr_auc": 0.1852328356780726
+    }
+}

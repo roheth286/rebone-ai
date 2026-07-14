@@ -1,0 +1,19 @@
+{
+    "model_type": "CatBoostClassifier",
+    "hyperparameters": {
+        "iterations": 100,
+        "depth": 4,
+        "learning_rate": 0.05,
+        "random_seed": 42
+    },
+    "metrics": {
+        "optimal_threshold": 0.2077083913253416,
+        "accuracy": 0.935064935064935,
+        "precision": 0.13793103448275862,
+        "recall": 0.4444444444444444,
+        "f1_score": 0.21052631578947367,
+        "f2_score": 0.3076923076923077,
+        "roc_auc": 0.597252882021094,
+        "pr_auc": 0.17898817982639037
+    }
+}
