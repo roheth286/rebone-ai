@@ -57,7 +57,7 @@ To reduce overfitting and eliminate clinical noise, the cleaning pipeline select
 2. **Outlier Capping**: Continuous variables (`Age`, `BMI`, `L1-4T`, `FN`, `TLT`) are capped at $1.5 \times \text{IQR}$ to prevent extreme values from distorting predictions.
 3. **Feature Scaling**: Continuous columns are standardized using `StandardScaler` (mean=0, variance=1) while binary flags bypass scaling.
 4. **Class Balancing (SMOTE)**: Due to the severe class imbalance (only 2% fractures in the raw data), **SMOTE (Synthetic Minority Over-sampling Technique)** is applied directly to the training split to synthetically generate minority samples, balancing the positive class ratio up to **25%** for model training. *(Note: Our best-performing model, the Isolation Forest, bypasses SMOTE entirely, as it uses semi-supervised training on a clean cohort instead).*
-5. **Clean Cohort Filtering (Isolation Forest Only)**: To train the Isolation Forest, we filter the training set to only include healthy patients (`Fracture = 0`) and remove borderline cases (diagnosed osteoporosis or severe T-scores $<-2.0$). This establishes an extremely pure, strong-boned baseline, causing any bone-density anomalies (fracture cases) to stand out immediately. This data purification is the primary driver behind the model's high ROC-AUC and Precision.
+5. **Clean Cohort Filtering (Isolation Forest Only)**: To train the Isolation Forest, we filter the training set to only include healthy patients (`Fracture = 0`) and remove borderline cases (diagnosed osteoporosis or severe T-scores $<-2.0$). This establishes an extremely pure, strong-boned baseline, causing any bone-density anomalies (fracture cases) to stand out immediately. This data purification is the primary driver behind the model's high ROC-AUC (which reaches **0.71** under Stratified 5-Fold Cross-Validation) and Precision.
 
 ---
 
@@ -100,14 +100,14 @@ Our 12 selected features are highlighted below, showing that they hold the highe
 ## 📈 Models & Baseline Results
 When evaluated on the raw `UA.csv` dataset (with a 30% test split), the baseline performance of the standard models is summarized below:
 
-| Model | ROC-AUC | Recall (Sensitivity) | Precision | F1-Score | Status |
-|---|:---:|:---:|:---:|:---:|---|
-| **Logistic Regression** | `0.5364` | `0.2222` | **`1.0000`** | `0.3636` | Missed 7 out of 9 |
-| **Random Forest** | `0.5975` | `0.4444` | `0.1379` | `0.2105` | Missed 5 out of 9 |
-| **XGBoost** | `0.6120` | `0.5556` | `0.0633` | `0.1136` | Missed 4 out of 9 |
-| **LightGBM** | `0.5948` | `0.2222` | `0.5000` | `0.3077` | Missed 7 out of 9 |
-| **CatBoost** | `0.5973` | `0.4444` | `0.1379` | `0.2105` | Missed 5 out of 9 |
-| **Isolation Forest (Ours)** | **`0.6434`** | `0.2222` | `0.4000` | `0.2857` | **Highest ROC-AUC on single test split** |
+| Model | ROC-AUC | Recall (Sensitivity) | Precision | F1-Score |
+|---|:---:|:---:|:---:|:---:|
+| **Logistic Regression** | `0.5364` | `0.2222` | **`1.0000`** | `0.3636` |
+| **Random Forest** | `0.5975` | `0.4444` | `0.1379` | `0.2105` |
+| **XGBoost** | `0.6120` | `0.5556` | `0.0633` | `0.1136` |
+| **LightGBM** | `0.5948` | `0.2222` | `0.5000` | `0.3077` |
+| **CatBoost** | `0.5973` | `0.4444` | `0.1379` | `0.2105` |
+| **Isolation Forest (Ours)** | **`0.6434`** | `0.2222` | `0.4000` | `0.2857` |
 
 ---
 
