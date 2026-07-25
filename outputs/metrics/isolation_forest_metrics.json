@@ -1,0 +1,38 @@
+{
+    "model_type": "IsolationForest",
+    "hyperparameters": {
+        "contamination": 0.02,
+        "random_state": 42,
+        "features_used": [
+            "Gender",
+            "Age",
+            "BMI",
+            "VT",
+            "VD",
+            "Calcitriol",
+            "Calcitonin",
+            "OP",
+            "Calsium",
+            "L1.4T",
+            "FNT",
+            "TLT"
+        ],
+        "weighted_features": [
+            "VT",
+            "VD",
+            "Calcitriol",
+            "Calcitonin",
+            "OP"
+        ]
+    },
+    "metrics": {
+        "optimal_threshold": 0.8420239325285926,
+        "accuracy": 0.9783549783549783,
+        "precision": 0.4,
+        "recall": 0.2222222222222222,
+        "f1_score": 0.2857142857142857,
+        "f2_score": 0.24390243902439024,
+        "roc_auc": 0.64336521952416,
+        "pr_auc": 0.17278863605786135
+    }
+}
