@@ -1,13 +1,13 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.api.deps import get_current_user
+from src.core.oauth import verify_google_token
 from src.core.security import create_access_token, get_password_hash, verify_password
 from src.db.deps import get_db
 from src.db.models import User
-from src.schemas.user import Token, UserCreate, UserLogin, UserOut
+from src.schemas.user import GoogleTokenInput, Token, UserCreate, UserLogin, UserOut
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -45,6 +45,31 @@ def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(subject=user.email, expires_delta=access_token_expires)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/google", response_model=Token)
+async def google_login(
+    google_in: GoogleTokenInput,
+    db: Session = Depends(get_db),
+):
+    google_claims = await verify_google_token(google_in.id_token)
+    email = google_claims["email"]
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            hashed_password=None,
+            full_name=google_claims.get("full_name"),
+            auth_provider="google",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(subject=user.email, expires_delta=access_token_expires)
