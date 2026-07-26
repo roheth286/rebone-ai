@@ -3,15 +3,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environments
+# Environments & Secret Files
 .venv/
 venv/
 ENV/
 env/
+.env
+
+# Database test files & logs
+*.db
+*.log
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
 # CatBoost log directories
 catboost_info/
-
