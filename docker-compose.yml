@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Database Service: PostgreSQL 15
   db:
     image: postgres:15-alpine
     container_name: rebone_postgres_db
@@ -20,7 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Web API Service: FastAPI + Uvicorn
   web:
     build: .
     container_name: rebone_fastapi_web
@@ -36,7 +34,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: rebone_db
-      SECRET_KEY: rebone_ai_super_secret_jwt_key_2026_change_in_production
+      SECRET_KEY: rebone_ai_secret_key_change_in_production
     depends_on:
       db:
         condition: service_healthy
