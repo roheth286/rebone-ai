@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.config import settings
 from src.api.v1.auth import router as auth_router
+from src.api.v1.history import router as history_router
+from src.api.v1.predict import router as predict_router
 from src.db.deps import init_db
 from src.ml.model_loader import load_ml_assets
 
@@ -41,6 +43,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix=settings.API_V1_STR)
+app.include_router(predict_router, prefix=settings.API_V1_STR)
+app.include_router(history_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")
