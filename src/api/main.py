@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.config import settings
 from src.api.v1.auth import router as auth_router
 from src.db.deps import init_db
+from src.ml.model_loader import load_ml_assets
 
 
 @asynccontextmanager
@@ -12,6 +13,12 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         print(f"Database initialization warning: {e}")
+
+    try:
+        load_ml_assets()
+    except Exception as e:
+        print(f"ML Asset loading warning: {e}")
+
     yield
 
 
