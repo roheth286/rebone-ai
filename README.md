@@ -1,42 +1,55 @@
-# Rebone AI: Fracture Risk Assessment Pipeline (Still Under Production)
+# Rebone AI: Clinical Machine Learning Pipeline & Production REST API
 
-Rebone AI is a machine learning and clinical analysis pipeline designed to identify high-risk bone profiles and predict potential patient fractures using bone mineral density (BMD) data, demographics, and clinical history.
+Rebone AI is an end-to-end clinical machine learning pipeline and containerized REST API designed to evaluate patient fracture risks using bone mineral density (BMD) data, demographic indicators, and clinical history.
 
 ---
 
 ## 🚀 Getting Started & Execution
 
-### 1. Prerequisites & Installation
-Ensure you have Python 3.8+ installed. First, clone the repository, activate your virtual environment, and install the project dependencies:
+### 1. Running with Docker (Recommended)
+Ensure Docker and Docker Desktop are installed and running on your system.
+
+To build and launch the containerized application microservices (FastAPI + PostgreSQL):
 
 ```bash
-# Activate your virtual environment (Windows example)
-.venv\Scripts\activate
-
-# Install the required packages
-pip install -r requirements.txt
+docker-compose up --build
 ```
 
-### 2. Running the Pipeline
-The core orchestration of the preprocessing, cleaning, splitting, training, and evaluation is managed inside the Jupyter Notebook:
-* **Notebook Path**: `notebooks/notebook_03.ipynb`
+Once the containers start up:
+* **Interactive API Documentation (Swagger UI)**: Open `http://localhost:8000/docs` in your browser.
+* **Database Service**: PostgreSQL 15 running on port `5432`.
 
-To run the pipeline:
-1. Open the notebook via VS Code or your Jupyter environment:
-   ```bash
-   jupyter notebook notebooks/notebook_03.ipynb
-   ```
-2. Run all cells sequentially. The notebook will automatically:
-   * Load and clean the raw data.
-   * Split the dataset into train and test cohorts.
-   * Build and fit the preprocessing pipeline.
-   * Train five distinct machine learning models (Logistic Regression, Random Forest, XGBoost, LightGBM, and CatBoost).
-   * Evaluate all models and output performance metrics/plots.
+### 2. Local Python Environment Execution
+Alternatively, you can run the server directly within a local Python environment:
+
+```bash
+# Activate virtual environment (Windows example)
+.venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start Uvicorn development server
+python -m uvicorn src.api.main:app --reload --port 8000
+```
+
+---
+
+## 🏗️ Backend System Architecture & MLOps
+
+Rebone AI features a production-ready REST API built with FastAPI and PostgreSQL:
+
+* **Containerized Microservices**: Orchestrated via Docker Compose linking web and database services.
+* **Authentication**: Stateless JWT access tokens (`HS256`) and Google OAuth 2.0 SSO integration (`POST /api/v1/auth/google`).
+* **MLOps Model Serving**: In-memory model lifespan loading (`isolation_forest.joblib`) executing a 7-step deterministic inference pipeline.
+* **Database Persistence & Auditability**: Automatic logging of raw clinical inputs, calculated risk scores, prediction labels, and model versions to PostgreSQL (`prediction_records` table).
+
+*For a deep dive into sequence diagrams, database schemas, and system design trade-offs, please refer to [ARCHITECTURE.md](file:///c:/Users/rohet/OneDrive/Documents/CS_WORK/rebone-ai/ARCHITECTURE.md).*
 
 ---
 
 ## 📋 Problem Statement
-The goal is to predict whether a patient will experience a bone fracture (`Fracture = 1`) based on their demographic variables, medical conditions, medications, and bone mineral density measurements. Early identification of high-risk patients allows for timely clinical interventions (such as prescribing bone-strengthening medications like bisphosphonates).
+The goal is to predict whether a patient will experience a bone fracture (`Fracture = 1`) based on demographic variables, medical conditions, medications, and bone mineral density measurements. Early identification of high-risk patients allows for timely clinical interventions (such as prescribing bone-strengthening medications like bisphosphonates).
 
 ---
 
@@ -47,32 +60,31 @@ The goal is to predict whether a patient will experience a bone fracture (`Fract
 ---
 
 ## 🛠️ Preprocessing Pipeline
-To reduce overfitting and eliminate clinical noise, the cleaning pipeline selects **13 key clinical features** out of the 39 available columns:
+To reduce overfitting and eliminate clinical noise, the cleaning pipeline selects **12 key clinical features** out of the 39 available columns:
 * **Demographics**: `Gender` (Encoded: Male=0, Female=1), `Age`, `BMI`
-* **Clinical Indicators**: `VT` (Vertebral T-Score), `VD` (Vitamin D Status), `Calcitriol`, `Calcitonin`, `OP` (Osteoporosis Diagnosis), `Calsium`, `COPD`
-* **Bone Density Measurements**: `TL` (Total Hip BMD), `TLT` (Total Hip T-Score), `FN` (Femoral Neck BMD)
+* **Clinical Indicators**: `VT` (Vertebral T-Score), `VD` (Vitamin D Status), `Calcitriol`, `Calcitonin`, `OP` (Osteoporosis Diagnosis), `Calsium`
+* **Bone Density Measurements**: `L1-4T` (L1-4 T-Score), `TLT` (Total Hip T-Score), `FNT` (Femoral Neck T-Score)
 
 ### Core Preprocessing Steps:
-1. **Missing Value Imputation**: Empty values are imputed using the column medians.
-2. **Outlier Capping**: Continuous variables (`Age`, `BMI`, `L1-4T`, `FN`, `TLT`) are capped at $1.5 \times \text{IQR}$ to prevent extreme values from distorting predictions.
+1. **Missing Value Imputation**: Empty values are imputed using column medians.
+2. **Outlier Capping**: Continuous variables (`Age`, `BMI`, `L1-4T`, `FNT`, `TLT`) are capped at $1.5 \times \text{IQR}$.
 3. **Feature Scaling**: Continuous columns are standardized using `StandardScaler` (mean=0, variance=1) while binary flags bypass scaling.
-4. **Class Balancing (SMOTE)**: Due to the severe class imbalance (only 2% fractures in the raw data), **SMOTE (Synthetic Minority Over-sampling Technique)** is applied directly to the training split to synthetically generate minority samples, balancing the positive class ratio up to **25%** for model training. *(Note: Our best-performing model, the Isolation Forest, bypasses SMOTE entirely, as it uses semi-supervised training on a clean cohort instead).*
-5. **Clean Cohort Filtering (Isolation Forest Only)**: To train the Isolation Forest, we filter the training set to only include healthy patients (`Fracture = 0`) and remove borderline cases (diagnosed osteoporosis or severe T-scores $<-2.0$). This establishes an extremely pure, strong-boned baseline, causing any bone-density anomalies (fracture cases) to stand out immediately. This data purification is the primary driver behind the model's high ROC-AUC (which reaches **0.71** under Stratified 5-Fold Cross-Validation) and Precision.
-6. **Weighted Feature Duplication (Isolation Forest Only)**: The model is trained on **12 distinct clinical features** (demographics, risk flags, and BMD T-scores). To emphasize the most critical clinical signals, **5 high-impact features** (`VT`, `VD`, `OP`, `Calcitriol`, `Calcitonin`) are duplicated 2 times each (yielding 10 duplicates). This expands the training matrix to **22 features in total**. Because the Isolation Forest builds trees by selecting features at random, this duplication makes the tree-builder 3 times more likely to split on these high-impact columns, focusing the model's partitions on the most predictive clinical signals.
+4. **Clean Cohort Filtering**: Trained strictly on healthy patient cohorts (`Fracture = 0`) to establish a pure baseline profile, allowing fracture cases to stand out as anomalies.
+5. **Weighted Feature Duplication**: High-impact clinical features (`VT`, `VD`, `OP`, `Calcitriol`, `Calcitonin`) are duplicated twice (`_dup1`, `_dup2`) to expand the feature space to 22 columns, focusing tree split choices on key clinical indicators.
 
 ---
 
 ## 📊 Feature Selection & Relationship Analysis
 
-To justify selecting the **12 key features** (excluding the target `Fracture`) out of the 39 available features, we ran a correlation analysis of all 39 raw features against `Fracture` in `UA.csv`. 
+To justify selecting the **12 key features** (excluding the target `Fracture`) out of the 39 available features, a correlation analysis was executed against `Fracture` in `UA.csv`. 
 
-You can run this analysis directly using the script in the repository:
+You can run this analysis directly:
 ```bash
 python src/evaluation/feature_relationship_analysis.py
 ```
 
 ### Feature Correlation Rankings
-Our 12 selected features are highlighted below, showing that they hold the highest predictive signals in the dataset while the remaining 27 columns represent low-signal noise:
+Our 12 selected features hold the highest predictive signals in the dataset:
 
 | Rank | Feature Name | Absolute Correlation | Direction | Status |
 |:---:|---|:---:|:---:|---|
@@ -89,17 +101,10 @@ Our 12 selected features are highlighted below, showing that they hold the highe
 | 30 | **L1.4T** | `0.010737` | Positive | [CHOSEN] |
 | 32 | **Gender** | `0.010080` | Positive | [CHOSEN] |
 
-*\*Note on Ranks 4 and 8: Ranks 4 (`TL`) and 8 (`FN`) are raw bone mineral density values of the hip and neck. We excluded them to avoid redundancy, as their corresponding T-scores (`TLT` and `FNT`) are more standardized and already included.*
-
-### Comparison Summary
-* **Average Absolute Correlation of [CHOSEN] Features**: **`0.070981`**
-* **Average Absolute Correlation of Noise Features**: **`0.025768`**
-* On average, our chosen features have **`2.8x` stronger relationships** with the target than the remaining 27 noise features in the dataset (such as liver enzymes ALT/AST, kidney function CREA/BUN, and other chemistry markers).
-
 ---
 
 ## 📈 Models & Baseline Results
-When evaluated on the raw `UA.csv` dataset (with a 30% test split), the baseline performance of the standard models is summarized below:
+When evaluated on the raw `UA.csv` dataset (with a 30% test split), model performances are summarized below:
 
 | Model | ROC-AUC | Recall (Sensitivity) | Precision | F1-Score |
 |---|:---:|:---:|:---:|:---:|
@@ -112,43 +117,6 @@ When evaluated on the raw `UA.csv` dataset (with a 30% test split), the baseline
 
 ---
 
-## ⚠️ Key Challenges
-Standard machine learning models struggle to achieve high predictive accuracy on this dataset due to three major bottlenecks:
-
-1. **Extreme Class Imbalance (2% Positive Rate)**: 
-   Out of 1,537 patients, **only 31** experienced a fracture. In a standard test split, there are only 6 to 9 positive cases, making evaluation metrics highly volatile (e.g., a single false positive drops precision by $15\%$).
-2. **Weak Feature-Target Relationships**:
-   No single feature exhibits a strong correlation with the target. Even the strongest clinical indicator (`VT`) has a Pearson correlation of only `0.2182` and high specificity but low sensitivity.
-3. **The Precision/Recall Dilemma**:
-   Due to the sparse signal, attempting to raise Recall (catching more fractures) forces the models to flag hundreds of healthy patients as high-risk, dropping Precision to $<10\%$. Conversely, optimizing for Precision limits predictions to a few obvious cases, dropping Recall below $25\%$.
-
----
-
-## 🔬 Experimental Work: Anomaly Detection (Isolation Forest)
-To address the class imbalance, we are experimenting with **Semi-Supervised Anomaly Detection** using **Isolation Forest**. Instead of training models on both classes, the model is trained **only** on healthy patients (`Fracture = 0`) to learn a "normal bone profile" and flags fractures as anomalies (outliers).
-
-We evaluated these techniques using **Stratified 5-Fold Cross-Validation** on the raw `UA.csv` dataset:
-
-### Experimental Performance Summary:
-
-| Configuration | ROC-AUC | Precision | Recall | F1-Score | F2-Score |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Baseline (IForest, F1-Thresh)** | `0.7204` | **`0.6892`** | `0.2619` | `0.2539` | `0.2172` |
-| **Method 1 (F2-Thresh)** *[High Recall]* | `0.7204` | `0.1620` | **`0.5524`** | `0.2106` | `0.3056` |
-| **Method 3 (SVM Union)** *[Ensemble]* | `0.7140` | `0.5434` | **`0.3952`** | `0.2607` | `0.2732` |
-| **Method 4 (Weighted Features)** *[Balanced]* | **`0.7247`** | `0.5450` | **`0.3619`** | **`0.2745`** | `0.2787` |
-| **Comb D (F2-Thresh + Clean + SVM)** | `0.7205` | `0.1619` | `0.5190` | `0.2287` | **`0.3282`** |
-
-### Key Experimental Insights & CV Loop Integration:
-* **Cross-Validation vs. Single Split**: While the model achieves an ROC-AUC of **`0.6434`** on the single 30% test split, evaluating it via our **Stratified 5-Fold Cross-Validation loop** yields a much more stable and realistic ROC-AUC of **`0.7102`** (Baseline) and **`0.7247`** (Weighted). The cross-validation loop runs across the entire dataset, smoothing out the noise and split volatility caused by having only 9 positive cases in a single test split.
-* **Feature Selection Boost**: Restricting the Isolation Forest to our 12 clinical features reduced dimensionality noise, causing Precision to jump from **`49.1%` to `68.9%`**.
-* **Ensemble Outliers (Method 3)**: Combining Isolation Forest and One-Class SVM caught different types of anomalies, boosting Recall to **`39.52%`** while maintaining a high Precision of **`54.34%`**.
-* **Weighted Tree Splits (Method 4)**: Duplicating high-impact features (`VT`, `VD`, `OP`) forced the tree-builder to split on them more frequently, yielding the highest overall ROC-AUC (**`0.7247`**).
-* **Recall Maximization (Method 1)**: Tuning the decision threshold to prioritize the $F_2$-score doubled baseline Recall to **`55.24%`** (Precision: `16.20%`).
-
----
-
 ## 🔮 Future Outlook & Development Roadmap
-1. **Development Stage**: The project is currently in the active R&D and experimentation phase.
-2. **Upcoming Dataset**: We are expecting a new, larger clinical dataset with a higher proportion of positive fracture cases. This will resolve the extreme class imbalance and allow us to train more complex models.
-3. **API Development**: Once the model architecture is finalized on the new dataset, we will develop a robust REST API to serve real-time fracture risk predictions for clinical applications.
+1. **Expanded Clinical Dataset**: The system architecture is built to seamlessly ingest an upcoming expanded clinical dataset with higher positive fracture prevalence.
+2. **Model Retraining & Fine-Tuning**: Re-evaluating the tree ensemble on the expanded dataset once available to further refine sensitivity thresholds.
