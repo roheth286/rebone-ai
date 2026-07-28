@@ -1,5 +1,6 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.api.deps import get_current_user
@@ -7,7 +8,7 @@ from src.core.oauth import verify_google_token
 from src.core.security import create_access_token, get_password_hash, verify_password
 from src.db.deps import get_db
 from src.db.models import User
-from src.schemas.user import GoogleTokenInput, Token, UserCreate, UserLogin, UserOut
+from src.schemas.user import GoogleTokenInput, Token, UserCreate, UserOut
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -35,11 +36,11 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(
-    user_in: UserLogin,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == user_in.email).first()
-    if not user or not user.hashed_password or not verify_password(user_in.password, user.hashed_password):
+    user = db.query(User).filter(User.email == form_data.username).first()
+    if not user or not user.hashed_password or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
