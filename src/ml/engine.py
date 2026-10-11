@@ -15,52 +15,52 @@ def run_inference(patient_dict: Dict[str, Any]) -> Dict[str, Any]:
     selected_features = assets["selected_features"]
     high_impact_cols = assets["high_impact_cols"]
 
+    from src.preprocessing.pipeline import get_pipeline_feature_names
+
     # 1. Convert input to DataFrame and map L1_4T key to L1.4T
     input_data = patient_dict.copy()
     if "L1_4T" in input_data:
         input_data["L1.4T"] = input_data.pop("L1_4T")
 
-    df_raw = pd.DataFrame([input_data])
+    # Canonical 15 clinical features used during pipeline fitting and model training
+    clinical_features_15 = [
+        "Gender", "Age", "BMI", "L1.4T", "FNT", "TLT",
+        "Calsium", "Calcitriol", "Bisphosphonate", "Calcitonin",
+        "VT", "VD", "OP", "Smoking", "Drinking"
+    ]
 
-    # Convert Gender string to binary numeric flag (Male=0, Female=1)
+    # Ensure required raw columns exist with appropriate defaults
+    raw_record = {}
+    for feat in clinical_features_15:
+        raw_record[feat] = input_data.get(feat, 0.0)
+
+    df_raw = pd.DataFrame([raw_record])
+
+    # Convert Gender string or integer to standard format expected by pipeline
     if "Gender" in df_raw.columns:
         df_raw["Gender"] = df_raw["Gender"].apply(
-            lambda val: 1 if str(val).strip().lower() in ["female", "f", "1"] else 0
+            lambda val: 1 if str(val).strip().lower() in ["female", "f", "1", "2"] and str(val).strip().lower() in ["female", "f", "2"] else (0 if str(val).strip().lower() in ["male", "m", "1", "0"] else val)
         )
 
-    # Ensure required raw columns exist
-    for feat in ["Gender", "Age", "BMI", "L1.4T", "FNT", "TLT", "Calsium", "Calcitriol", "Calcitonin", "VT", "VD", "OP"]:
-        if feat not in df_raw.columns:
-            df_raw[feat] = 0.0
+    # 2. Preprocess using fitted pipeline
+    if not hasattr(pipeline, "transform"):
+        raise RuntimeError("Loaded preprocessing pipeline does not support 'transform'.")
 
-    # 2. Preprocess using pipeline if applicable
-    if hasattr(pipeline, "transform"):
-        try:
-            transformed_arr = pipeline.transform(df_raw)
-            if hasattr(transformed_arr, "toarray"):
-                transformed_arr = transformed_arr.toarray()
+    transformed_arr = pipeline.transform(df_raw)
+    if hasattr(transformed_arr, "toarray"):
+        transformed_arr = transformed_arr.toarray()
 
-            if hasattr(pipeline, "get_feature_names_out"):
-                raw_cols = pipeline.get_feature_names_out()
-                clean_cols = [c.split("__")[-1] for c in raw_cols]
-            else:
-                clean_cols = df_raw.columns.tolist()
-
-            df_preprocessed = pd.DataFrame(transformed_arr, columns=clean_cols[:transformed_arr.shape[1]])
-        except Exception:
-            df_preprocessed = df_raw.copy()
-    else:
-        df_preprocessed = df_raw.copy()
+    # Determine column names in the exact order output by ColumnTransformer
+    processed_cols = get_pipeline_feature_names(pipeline, df_raw)
+    df_preprocessed = pd.DataFrame(transformed_arr, columns=processed_cols)
 
     # 3. Select 12 Isolation Forest features
     df_sel = pd.DataFrame()
     for col in selected_features:
         if col in df_preprocessed.columns:
             df_sel[col] = df_preprocessed[col]
-        elif col in df_raw.columns:
-            df_sel[col] = df_raw[col]
         else:
-            df_sel[col] = 0.0
+            raise KeyError(f"Expected model feature '{col}' missing from preprocessed data columns: {list(df_preprocessed.columns)}")
 
     # 4. Weighted Feature Duplication
     df_weighted = df_sel.copy()

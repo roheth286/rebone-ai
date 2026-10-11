@@ -1,5 +1,6 @@
 import os
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
@@ -41,6 +42,13 @@ class IQROutlierCapper(BaseEstimator, TransformerMixin):
                 X_capped[col] = X_capped[col].clip(lower=lower, upper=upper)
         return X_capped
 
+    def get_feature_names_out(self, input_features=None):
+        if input_features is not None:
+            return np.array(input_features, dtype=object)
+        if self.columns is not None:
+            return np.array(self.columns, dtype=object)
+        return np.array(list(self.bounds_.keys()), dtype=object)
+
 
 class GenderEncoder(BaseEstimator, TransformerMixin):
     def __init__(self, column="Gender"):
@@ -55,6 +63,11 @@ class GenderEncoder(BaseEstimator, TransformerMixin):
         if self.column in X_encoded.columns:
             X_encoded[self.column] = X_encoded[self.column].map({'Male': 0, 'Female': 1, 1: 0, 2: 1})
         return X_encoded
+
+    def get_feature_names_out(self, input_features=None):
+        if input_features is not None:
+            return np.array(input_features, dtype=object)
+        return np.array([self.column], dtype=object)
 
 
 # --- Pipeline Builder ---
