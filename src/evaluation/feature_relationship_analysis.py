@@ -71,6 +71,11 @@ def run_feature_analysis(csv_path):
     print(f"Average Absolute Correlation of Noise features:     {noise_corr:.6f}")
     print(f"The chosen features have {chosen_corr/noise_corr:.1f}x stronger relationships on average than the noise features.")
 
+
 if __name__ == "__main__":
-    csv_path = r"C:\Users\rohet\OneDrive\Documents\CS_WORK\rebone-ai\data\raw\UA.csv"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
+    csv_path = os.path.join(project_dir, "data", "raw", "UA.csv")
+
     run_feature_analysis(csv_path)
+
